@@ -149,6 +149,20 @@ class MemoryReference(BaseModel):
     resolution_notes: Optional[str] = Field(None, description="How the past incident was resolved")
 
 
+class MemoryRetainRequest(BaseModel):
+    """Request payload sent to Hindsight memory module to retain a resolved incident."""
+    incident_id: str = Field(..., description="ID of the resolved incident")
+    title: str = Field(..., description="Title of the incident")
+    description: str = Field(..., description="Detailed description of the incident")
+    affected_service: str = Field(..., description="Service experiencing the issue")
+    severity: IncidentSeverity = Field(..., description="Severity level")
+    root_cause: str = Field(..., description="Identified root cause")
+    resolution: str = Field(..., description="Resolution steps taken")
+    outcome: str = Field(..., description="Outcome of resolution")
+    resolved_at: Optional[datetime] = Field(None, description="Timestamp when incident was resolved")
+
+
+
 class AnalysisRequest(BaseModel):
     """Contract sent to Agent module (RocketRide + Groq) for troubleshooting."""
     incident_id: str = Field(..., description="ID of the incident to analyze")

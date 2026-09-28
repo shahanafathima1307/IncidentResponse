@@ -40,7 +40,13 @@ class Settings:
     HINDSIGHT_SERVICE_URL: Optional[str] = os.getenv("HINDSIGHT_SERVICE_URL") or None
     HYDRADB_SERVICE_URL: Optional[str] = os.getenv("HYDRADB_SERVICE_URL") or None
 
+    # Official Hindsight Engine Settings
+    HINDSIGHT_API_URL: str = os.getenv("HINDSIGHT_API_URL", "http://localhost:8888")
+    HINDSIGHT_BANK_ID: str = os.getenv("HINDSIGHT_BANK_ID", "incident-response-bank")
+    HINDSIGHT_API_KEY: Optional[str] = os.getenv("HINDSIGHT_API_KEY") or None
+
     REQUEST_TIMEOUT_SECONDS: float = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "5.0"))
+
 
 
 settings = Settings()
