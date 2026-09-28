@@ -1,0 +1,6 @@
+{
+  "name": "OnCall Memory",
+  "description": "Incident response tool with institutional memory for on-call engineers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

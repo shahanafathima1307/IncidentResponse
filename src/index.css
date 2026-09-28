@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-base: #FAF9F7;
+    --bg-surface: #FFFFFF;
+    --bg-subtle: #F3F1EC;
+    --bg-hover: #ECE8E1;
+    --border-hairline: #E4E1DA;
+    --border-hover: #C8C5BD;
+    --text-primary: #1C1B19;
+    --text-muted: #6C685F;
+    --text-dim: #8E8B83;
+    
+    --primary: #153464;
+    --primary-container: #2F4B7C;
+    --on-primary-container: #A1BCF4;
+    --accent: #2F4B7C;
+    --accent-hover: #243A60;
+    --accent-active: #1C2E4C;
+    --accent-subtle: #EEF2F8;
+
+    --sem-green: #3F7D58;
+    --sem-green-bg: #F0F6F2;
+    --sem-green-border: #CBE3D4;
+    
+    --sem-amber: #B7791F;
+    --sem-amber-bg: #FDF8ED;
+    --sem-amber-border: #F5E3BD;
+    
+    --sem-red: #B23A3A;
+    --sem-red-bg: #FDF1F1;
+    --sem-red-border: #F5D0D0;
+
+    --sem-stale: #5C6B73;
+    --sem-stale-bg: #F1F4F5;
+    --sem-stale-border: #D6DFE2;
+  }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 14px; /* Increased by +1 from original 13px */
+    line-height: 1.45;
+    letter-spacing: -0.005em;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+}
+
+.font-jetbrains {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+}
+
+.font-plex {
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-hairline);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
