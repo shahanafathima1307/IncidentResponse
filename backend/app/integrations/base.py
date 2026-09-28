@@ -13,6 +13,7 @@ from contracts.schemas import (
     AnalysisRequest,
     AnalysisResponse,
     MemoryReference,
+    MemoryRetainRequest,
 )
 
 
@@ -53,9 +54,20 @@ class BaseMemoryClient(ABC):
         pass
 
     @abstractmethod
+    async def retain_memory(self, request: MemoryRetainRequest) -> bool:
+        """
+        Send confirmed incident resolution to Hindsight memory for retention.
+
+        Raises:
+            ModuleUnavailableError: If Hindsight memory service is unreachable or unconfigured.
+        """
+        pass
+
+    @abstractmethod
     async def check_health(self) -> str:
         """Return connectivity health string for this module."""
         pass
+
 
 
 class BaseKnowledgeClient(ABC):

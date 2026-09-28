@@ -3,11 +3,13 @@ Incidents router for Incident Response Agent.
 Handles incident creation, retrieval, listing, resolution, and AI analysis requests.
 """
 
-from typing import Optional
+import logging
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from backend.app.database import IncidentRepository, get_repository
 from backend.app.integrations.agent_client import AgentClient, get_agent_client
+from backend.app.integrations.memory_client import MemoryClient, get_memory_client
 from backend.app.integrations.exceptions import (
     IntegrationResponseError,
     IntegrationTimeoutError,
@@ -22,7 +24,11 @@ from contracts.schemas import (
     IncidentResponse,
     IncidentSeverity,
     IncidentStatus,
+    MemoryReference,
+    MemoryRetainRequest,
 )
+
+logger = logging.getLogger("backend.incidents")
 
 router = APIRouter(prefix="/incidents", tags=["Incidents"])
 
@@ -107,6 +113,7 @@ async def resolve_incident(
     incident_id: str,
     payload: IncidentResolutionRequest,
     repo: IncidentRepository = Depends(get_repository),
+    memory_client: MemoryClient = Depends(get_memory_client),
 ) -> IncidentResponse:
     """Record post-incident resolution and mark incident as RESOLVED."""
     clean_id = incident_id.strip().upper()
@@ -116,6 +123,30 @@ async def resolve_incident(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Incident with ID '{clean_id}' was not found. Cannot resolve non-existent incident.",
         )
+
+    # Construct Hindsight memory retention payload
+    retain_payload = MemoryRetainRequest(
+        incident_id=updated.id,
+        title=updated.title,
+        description=updated.description,
+        affected_service=updated.affected_service,
+        severity=updated.severity,
+        root_cause=updated.root_cause or payload.root_cause,
+        resolution=updated.resolution or payload.resolution,
+        outcome=updated.outcome or payload.outcome,
+        resolved_at=updated.resolved_at,
+    )
+
+    # Trigger retention to Hindsight memory module
+    # If Hindsight is unavailable, SQLite resolution must still succeed (log warning and continue)
+    try:
+        await memory_client.retain_memory(retain_payload)
+    except Exception as err:
+        logger.warning(
+            f"Hindsight memory retention unavailable during resolution of incident '{clean_id}': {err}. "
+            "SQLite resolution succeeded."
+        )
+
     return updated
 
 
@@ -136,11 +167,12 @@ async def analyze_incident(
     incident_id: str,
     repo: IncidentRepository = Depends(get_repository),
     agent_client: AgentClient = Depends(get_agent_client),
+    memory_client: MemoryClient = Depends(get_memory_client),
 ) -> AnalysisResponse:
     """
     Request diagnostic analysis and troubleshooting suggestions.
-    Interacts with the agent module boundary.
-    Never fabricates fake successful responses when external module is unavailable.
+    Interacts with the agent module boundary after querying Hindsight memory.
+    Never fabricates fake successful responses when external agent module is unavailable.
     """
     clean_id = incident_id.strip().upper()
     incident = repo.get_by_id(clean_id)
@@ -150,7 +182,21 @@ async def analyze_incident(
             detail=f"Incident with ID '{clean_id}' was not found.",
         )
 
-    # Prepare Analysis contract payload
+    # Query Hindsight memory for relevant historical memories
+    recalled_memories: List[MemoryReference] = []
+    try:
+        recalled_memories = await memory_client.retrieve_memories(
+            affected_service=incident.affected_service,
+            description=incident.description,
+            limit=5,
+        )
+    except Exception as err:
+        logger.warning(
+            f"Hindsight memory recall unavailable during analysis of incident '{clean_id}': {err}. "
+            "Proceeding with analysis without historical context."
+        )
+
+    # Prepare Analysis contract payload including historical memories in context
     analysis_request = AnalysisRequest(
         incident_id=incident.id,
         title=incident.title,
@@ -162,12 +208,18 @@ async def analyze_incident(
             "created_at": incident.created_at.isoformat(),
             "updated_at": incident.updated_at.isoformat(),
             "is_resolved": incident.status == IncidentStatus.RESOLVED,
+            "historical_memories": [mem.model_dump(mode="json") for mem in recalled_memories],
         },
     )
 
     try:
         # Call agent interface boundary
         analysis_result = await agent_client.analyze_incident(analysis_request)
+
+        # Populate AnalysisResponse.memory_references if not already populated by agent module
+        if recalled_memories and not analysis_result.memory_references:
+            analysis_result.memory_references = recalled_memories
+
         return analysis_result
 
     except ModuleUnavailableError as err:
@@ -203,3 +255,4 @@ async def analyze_incident(
                 "incident_id": incident.id,
             },
         )
+

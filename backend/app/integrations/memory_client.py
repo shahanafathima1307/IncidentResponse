@@ -13,7 +13,7 @@ from backend.app.integrations.exceptions import (
     IntegrationTimeoutError,
     ModuleUnavailableError,
 )
-from contracts.schemas import MemoryReference
+from contracts.schemas import MemoryReference, MemoryRetainRequest
 
 
 class MemoryClient(BaseMemoryClient):
@@ -91,6 +91,47 @@ class MemoryClient(BaseMemoryClient):
             raise IntegrationResponseError(
                 "memory", response.status_code, f"Failed to parse memory references: {str(exc)}"
             )
+
+    async def retain_memory(self, request: MemoryRetainRequest) -> bool:
+        """
+        Send confirmed incident resolution to Hindsight memory for retention.
+        Fails safely and raises ModuleUnavailableError if Hindsight service is unconfigured or unreachable.
+        """
+        if not self.service_url:
+            raise ModuleUnavailableError(
+                module_name="memory",
+                service_url=None,
+                detail="Memory module ('Hindsight') is not configured.",
+                instructions="Set HINDSIGHT_SERVICE_URL in .env to the running Hindsight service.",
+            )
+
+        url = f"{self.service_url.rstrip('/')}/memories/retain"
+        payload = request.model_dump(mode="json")
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(url, json=payload)
+        except httpx.TimeoutException:
+            raise IntegrationTimeoutError("memory", self.timeout)
+        except httpx.ConnectError:
+            raise ModuleUnavailableError(
+                module_name="memory",
+                service_url=self.service_url,
+                detail=f"Cannot connect to Hindsight service at {self.service_url}.",
+                instructions="Ensure teammate's Hindsight service is running.",
+            )
+        except Exception as exc:
+            raise ModuleUnavailableError(
+                module_name="memory",
+                service_url=self.service_url,
+                detail=f"Failed to communicate with Hindsight service: {str(exc)}",
+            )
+
+        if response.status_code not in (200, 201):
+            raise IntegrationResponseError("memory", response.status_code, response.text)
+
+        return True
+
 
 
 # Default memory client instance
