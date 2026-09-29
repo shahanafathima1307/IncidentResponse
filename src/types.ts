@@ -1,6 +1,7 @@
 export type Severity = 'SEV1' | 'SEV2' | 'SEV3' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 export type IncidentStatus = 'open' | 'resolved' | 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'CLOSED';
-export type OutcomeType = 'worked' | 'failed' | 'worked_with_changes';
+export type OutcomeChoice = 'worked' | 'worked_with_changes' | 'didnt_work' | 'failed';
+export type OutcomeType = OutcomeChoice;
 
 export interface RemediationStep {
   title: string;
@@ -8,16 +9,40 @@ export interface RemediationStep {
   type?: 'diagnostic' | 'mitigation' | 'check' | 'test' | 'verified';
 }
 
+export interface IncidentRecord {
+  id: string;
+  title: string;
+  description: string;
+  affected_service: string;
+  severity: Severity;
+  status: IncidentStatus;
+  created_at: string;
+  updated_at: string;
+  root_cause?: string | null;
+  resolution?: string | null;
+  outcome?: string | null;
+  resolved_at?: string | null;
+}
+
 export interface Incident {
   id: string;
+  title?: string;
+  description?: string;
+  affected_service?: string;
+  created_at?: string;
+  updated_at?: string;
+  root_cause?: string | null;
+  resolution?: string | null;
+  outcome?: string | null;
+  resolved_at?: string | null;
   date: string;
   service: string;
   severity: Severity;
   alert: string;
   rule?: string;
   logs: string;
-  environment: string;
-  recent_deploy: string | null;
+  environment?: string;
+  recent_deploy?: string | null;
   commit?: string;
   region?: string;
   cluster?: string;
@@ -27,13 +52,46 @@ export interface Incident {
   match_percentage?: number | null;
   commander?: string;
   slack_channel?: string;
-  root_cause?: string | null;
-  resolution?: string | null;
   metric_5xx_rate?: {
     max_label: string;
     points: number[];
   };
 }
+
+export interface IncidentListResponse {
+  total: number;
+  items: IncidentRecord[];
+}
+
+export interface MemoryReference {
+  reference_id: string;
+  incident_id?: string | null;
+  summary: string;
+  similarity_score?: number | null;
+  resolution_notes?: string | null;
+}
+
+export interface AnalysisResponse {
+  incident_id: string;
+  troubleshooting_suggestions: string[];
+  potential_causes: string[];
+  recommended_actions: string[];
+  memory_references: MemoryReference[];
+  knowledge_references: any[];
+  confidence_score?: number | null;
+  analyzed_at: string;
+}
+
+export interface ResolutionPayload {
+  root_cause: string;
+  resolution: string;
+  outcome: string;
+}
+
+export interface MemoryStatsResponse {
+  incidents_in_memory: number;
+}
+export type MemoryStats = MemoryStatsResponse;
 
 export interface Recommendation {
   root_cause: string;
@@ -93,9 +151,5 @@ export interface OutcomeSubmission {
 export interface OutcomeResponse {
   stored: boolean;
   memory_summary: string;
-  incidents_in_memory: number;
-}
-
-export interface MemoryStats {
   incidents_in_memory: number;
 }
