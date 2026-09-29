@@ -1,5 +1,5 @@
-export type Severity = 'SEV1' | 'SEV2' | 'SEV3';
-export type IncidentStatus = 'open' | 'resolved';
+export type Severity = 'SEV1' | 'SEV2' | 'SEV3' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+export type IncidentStatus = 'open' | 'resolved' | 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'CLOSED';
 export type OutcomeType = 'worked' | 'failed' | 'worked_with_changes';
 
 export interface RemediationStep {
@@ -27,6 +27,8 @@ export interface Incident {
   match_percentage?: number | null;
   commander?: string;
   slack_channel?: string;
+  root_cause?: string | null;
+  resolution?: string | null;
   metric_5xx_rate?: {
     max_label: string;
     points: number[];

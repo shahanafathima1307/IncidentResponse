@@ -1,0 +1,18 @@
+{
+  "title": "Python",
+  "protocol": "tool_python://",
+  "prefix": "python",
+  "plans": null,
+  "capabilities": 3072,
+  "classType": [
+    "tool"
+  ],
+  "actions": 0,
+  "description": "Executes Python code in a restricted in-process sandbox via exec().\nOnly whitelisted modules can be imported. Dangerous builtins are removed.",
+  "lanes": {},
+  "tile": [
+    "Tool: python.execute"
+  ],
+  "documentation": "https://docs.rocketride.org/nodes/tool_python",
+  "icon": "110"
+}

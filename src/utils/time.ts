@@ -1,8 +1,14 @@
 export function formatRelativeTime(dateString: string): string {
   try {
-    const now = new Date('2026-09-28T08:39:55Z').getTime(); // anchored to current session timestamp
-    const date = new Date(dateString).getTime();
-    const diffSeconds = Math.max(0, Math.floor((now - date) / 1000));
+    const parsedDate = new Date(dateString).getTime();
+    if (isNaN(parsedDate)) return dateString;
+
+    const now = Date.now();
+    const diffSeconds = Math.floor((now - parsedDate) / 1000);
+
+    if (diffSeconds < 0) {
+      return 'just now';
+    }
 
     if (diffSeconds < 60) return `${diffSeconds}s ago`;
     const diffMinutes = Math.floor(diffSeconds / 60);

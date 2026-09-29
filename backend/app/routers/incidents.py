@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from backend.app.database import IncidentRepository, get_repository
 from backend.app.integrations.agent_client import AgentClient, get_agent_client
 from backend.app.integrations.memory_client import MemoryClient, get_memory_client
+from backend.app.integrations.knowledge_client import KnowledgeClient, get_knowledge_client
 from backend.app.integrations.exceptions import (
     IntegrationResponseError,
     IntegrationTimeoutError,
@@ -109,6 +110,16 @@ async def get_incident(
     summary="Record incident resolution",
     description="Saves the root cause, resolution steps, and outcome. Updates status to RESOLVED and records resolved timestamp.",
 )
+@router.post(
+    "/{incident_id}/resolve",
+    response_model=IncidentResponse,
+    include_in_schema=False,
+)
+@router.post(
+    "/{incident_id}/outcome",
+    response_model=IncidentResponse,
+    include_in_schema=False,
+)
 async def resolve_incident(
     incident_id: str,
     payload: IncidentResolutionRequest,
@@ -117,6 +128,15 @@ async def resolve_incident(
 ) -> IncidentResponse:
     """Record post-incident resolution and mark incident as RESOLVED."""
     clean_id = incident_id.strip().upper()
+    existing = repo.get_by_id(clean_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Incident with ID '{clean_id}' was not found. Cannot resolve non-existent incident.",
+        )
+
+    already_resolved = existing.status == IncidentStatus.RESOLVED
+
     updated = repo.resolve(clean_id, payload)
     if not updated:
         raise HTTPException(
@@ -137,15 +157,15 @@ async def resolve_incident(
         resolved_at=updated.resolved_at,
     )
 
-    # Trigger retention to Hindsight memory module
-    # If Hindsight is unavailable, SQLite resolution must still succeed (log warning and continue)
-    try:
-        await memory_client.retain_memory(retain_payload)
-    except Exception as err:
-        logger.warning(
-            f"Hindsight memory retention unavailable during resolution of incident '{clean_id}': {err}. "
-            "SQLite resolution succeeded."
-        )
+    # Trigger retention to Hindsight memory module only on initial resolution
+    if not already_resolved:
+        try:
+            await memory_client.retain_memory(retain_payload)
+        except Exception as err:
+            logger.warning(
+                f"Hindsight memory retention unavailable during resolution of incident '{clean_id}': {err}. "
+                "SQLite resolution succeeded."
+            )
 
     return updated
 
@@ -168,10 +188,11 @@ async def analyze_incident(
     repo: IncidentRepository = Depends(get_repository),
     agent_client: AgentClient = Depends(get_agent_client),
     memory_client: MemoryClient = Depends(get_memory_client),
+    knowledge_client: KnowledgeClient = Depends(get_knowledge_client),
 ) -> AnalysisResponse:
     """
     Request diagnostic analysis and troubleshooting suggestions.
-    Interacts with the agent module boundary after querying Hindsight memory.
+    Interacts with the agent module boundary after querying Hindsight memory and HydraDB knowledge.
     Never fabricates fake successful responses when external agent module is unavailable.
     """
     clean_id = incident_id.strip().upper()
@@ -196,7 +217,20 @@ async def analyze_incident(
             "Proceeding with analysis without historical context."
         )
 
-    # Prepare Analysis contract payload including historical memories in context
+    # Query HydraDB knowledge module for relevant architecture docs/runbooks
+    recalled_knowledge: List[dict] = []
+    try:
+        recalled_knowledge = await knowledge_client.query_knowledge(
+            query=f"{incident.affected_service} {incident.title}",
+            tags=[f"service:{incident.affected_service}"],
+        )
+    except Exception as err:
+        logger.warning(
+            f"HydraDB knowledge query unavailable during analysis of incident '{clean_id}': {err}. "
+            "Proceeding without knowledge references."
+        )
+
+    # Prepare Analysis contract payload including historical memories & runbooks in context
     analysis_request = AnalysisRequest(
         incident_id=incident.id,
         title=incident.title,
@@ -209,6 +243,7 @@ async def analyze_incident(
             "updated_at": incident.updated_at.isoformat(),
             "is_resolved": incident.status == IncidentStatus.RESOLVED,
             "historical_memories": [mem.model_dump(mode="json") for mem in recalled_memories],
+            "runbooks": recalled_knowledge,
         },
     )
 
@@ -219,6 +254,10 @@ async def analyze_incident(
         # Populate AnalysisResponse.memory_references if not already populated by agent module
         if recalled_memories and not analysis_result.memory_references:
             analysis_result.memory_references = recalled_memories
+
+        # Populate AnalysisResponse.knowledge_references if not already populated by agent module
+        if recalled_knowledge and not analysis_result.knowledge_references:
+            analysis_result.knowledge_references = recalled_knowledge
 
         return analysis_result
 

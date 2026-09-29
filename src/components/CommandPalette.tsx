@@ -18,23 +18,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 }) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        if (isOpen) onClose();
-        else onClose(); // parent handles toggle
-      }
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const filteredIncidents = MOCK_INCIDENTS.filter(
     (i) =>
@@ -48,6 +32,55 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       d.id.toLowerCase().includes(query.toLowerCase()) ||
       d.title.toLowerCase().includes(query.toLowerCase())
   );
+
+  const allActions = React.useMemo(() => {
+    const list: Array<{ id: string; action: () => void }> = [
+      { id: 'go-stream', action: () => { navigate('/'); onClose(); } },
+    ];
+    if (onToggleMemory) {
+      list.push({ id: 'toggle-mem', action: () => { onToggleMemory(); onClose(); } });
+    }
+    filteredIncidents.slice(0, 5).forEach((inc) => {
+      list.push({ id: inc.id, action: () => { navigate(`/incidents/${inc.id}`); onClose(); } });
+    });
+    return list;
+  }, [filteredIncidents, onToggleMemory, navigate, onClose]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [query]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % Math.max(allActions.length, 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev - 1 + allActions.length) % Math.max(allActions.length, 1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (allActions[selectedIndex]) {
+          allActions[selectedIndex].action();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, allActions, selectedIndex]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 font-jetbrains">
@@ -91,7 +124,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 navigate('/');
                 onClose();
               }}
-              className="w-full flex items-center justify-between p-2 rounded-[3px] hover:bg-[var(--bg-subtle)] text-left"
+              className={`w-full flex items-center justify-between p-2 rounded-[3px] text-left transition-colors ${
+                selectedIndex === 0 ? 'bg-[var(--bg-hover)] ring-1 ring-[var(--accent)]' : 'hover:bg-[var(--bg-subtle)]'
+              }`}
             >
               <div className="flex items-center gap-2">
                 <Layers size={15} className="text-[var(--accent)]" />
@@ -108,7 +143,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   onToggleMemory();
                   onClose();
                 }}
-                className="w-full flex items-center justify-between p-2 rounded-[3px] hover:bg-[var(--bg-subtle)] text-left"
+                className={`w-full flex items-center justify-between p-2 rounded-[3px] text-left transition-colors ${
+                  selectedIndex === 1 ? 'bg-[var(--bg-hover)] ring-1 ring-[var(--accent)]' : 'hover:bg-[var(--bg-subtle)]'
+                }`}
               >
                 <div className="flex items-center gap-2">
                   <Terminal size={15} className="text-[var(--accent)]" />
@@ -128,31 +165,37 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             <div className="text-[11px] font-jetbrains text-[var(--text-dim)] uppercase px-2 py-0.5 font-bold">
               INCIDENTS ({filteredIncidents.length})
             </div>
-            {filteredIncidents.slice(0, 5).map((inc) => (
-              <button
-                key={inc.id}
-                onClick={() => {
-                  navigate(`/incidents/${inc.id}`);
-                  onClose();
-                }}
-                className="w-full flex items-center justify-between p-2 rounded-[3px] hover:bg-[var(--bg-subtle)] text-left"
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <span className="font-jetbrains font-bold text-[var(--accent)] text-[13px]">
-                    {inc.id}
+            {filteredIncidents.slice(0, 5).map((inc, iIdx) => {
+              const itemActionIdx = (onToggleMemory ? 2 : 1) + iIdx;
+              const isSelected = selectedIndex === itemActionIdx;
+              return (
+                <button
+                  key={inc.id}
+                  onClick={() => {
+                    navigate(`/incidents/${inc.id}`);
+                    onClose();
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-[3px] text-left transition-colors ${
+                    isSelected ? 'bg-[var(--bg-hover)] ring-1 ring-[var(--accent)]' : 'hover:bg-[var(--bg-subtle)]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="font-jetbrains font-bold text-[var(--accent)] text-[13px]">
+                      {inc.id}
+                    </span>
+                    <span className="text-[var(--text-muted)] font-jetbrains text-[12px]">
+                      [{inc.service}]
+                    </span>
+                    <span className="truncate text-[var(--text-primary)] text-[13px]">
+                      {inc.alert}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-jetbrains text-[var(--text-dim)] shrink-0 ml-2">
+                    {inc.severity}
                   </span>
-                  <span className="text-[var(--text-muted)] font-jetbrains text-[12px]">
-                    [{inc.service}]
-                  </span>
-                  <span className="truncate text-[var(--text-primary)] text-[13px]">
-                    {inc.alert}
-                  </span>
-                </div>
-                <span className="text-[11px] font-jetbrains text-[var(--text-dim)] shrink-0 ml-2">
-                  {inc.severity}
-                </span>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
 
           {/* Documentation */}

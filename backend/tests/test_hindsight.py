@@ -292,7 +292,7 @@ def test_hindsight_result_mapping_without_score():
     assert ref.reference_id == "REF-100"
 
 
-def test_hindsight_wrapper_service_endpoints():
+def test_hindsight_wrapper_service_endpoints(monkeypatch):
     """
     Test the standalone Hindsight HTTP wrapper service endpoints (/health, /memories/search, /memories/retain).
     """
@@ -302,6 +302,49 @@ def test_hindsight_wrapper_service_endpoints():
     health_res = service_client.get("/health")
     assert health_res.status_code == 200
     assert "status" in health_res.json()
+
+    # Mock client for search and retain
+    class MockClient:
+        def recall(self, bank_id, query, tags):
+            class Item:
+                id = "MEM-1"
+                text = "Past resolution"
+                metadata = {"incident_id": "INC-0", "resolution": "Scaled up"}
+                scores = {"similarity": 0.85}
+            class Res:
+                results = [Item()]
+            return Res()
+
+        def retain(self, bank_id, content, metadata, tags, retain_async=False):
+            class RetainRes:
+                success = True
+            return RetainRes()
+
+    monkeypatch.setattr("hindsight_service.main.get_hindsight_client", lambda: MockClient())
+
+    search_res = service_client.post(
+        "/memories/search",
+        json={"affected_service": "redis", "description": "timeout", "limit": 3},
+    )
+    assert search_res.status_code == 200
+    assert "memories" in search_res.json()
+    assert len(search_res.json()["memories"]) == 1
+
+    retain_res = service_client.post(
+        "/memories/retain",
+        json={
+            "incident_id": "INC-123",
+            "title": "T",
+            "description": "D",
+            "affected_service": "S",
+            "severity": "HIGH",
+            "root_cause": "RC",
+            "resolution": "RES",
+            "outcome": "OUT",
+        },
+    )
+    assert retain_res.status_code == 201
+    assert retain_res.json()["status"] == "retained"
 
 
 class SpyAgentClient(MockWorkingAgentClient):

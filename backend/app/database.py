@@ -70,24 +70,54 @@ class Database:
             conn.close()
 
     def init_db(self) -> None:
-        """Initialize SQLite database schema."""
+        """Initialize SQLite database schema and migrate if needed."""
         with self.get_connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS incidents (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    description TEXT NOT NULL,
-                    affected_service TEXT NOT NULL,
-                    severity TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    root_cause TEXT,
-                    resolution TEXT,
-                    outcome TEXT,
-                    resolved_at TEXT
-                );
-            """)
+            cursor = conn.cursor()
+            cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='incidents';")
+            row = cursor.fetchone()
+            if row:
+                tbl_sql = row[0]
+                if "CHECK" not in tbl_sql.upper() or "COLLATE NOCASE" not in tbl_sql.upper():
+                    conn.execute("ALTER TABLE incidents RENAME TO incidents_old;")
+                    conn.execute("""
+                        CREATE TABLE incidents (
+                            id TEXT PRIMARY KEY COLLATE NOCASE,
+                            title TEXT NOT NULL,
+                            description TEXT NOT NULL,
+                            affected_service TEXT NOT NULL,
+                            severity TEXT NOT NULL CHECK(severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+                            status TEXT NOT NULL CHECK(status IN ('OPEN', 'INVESTIGATING', 'RESOLVED', 'CLOSED')),
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            root_cause TEXT,
+                            resolution TEXT,
+                            outcome TEXT,
+                            resolved_at TEXT
+                        );
+                    """)
+                    conn.execute("""
+                        INSERT INTO incidents (id, title, description, affected_service, severity, status, created_at, updated_at, root_cause, resolution, outcome, resolved_at)
+                        SELECT id, title, description, affected_service, severity, status, created_at, updated_at, root_cause, resolution, outcome, resolved_at
+                        FROM incidents_old;
+                    """)
+                    conn.execute("DROP TABLE incidents_old;")
+            else:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS incidents (
+                        id TEXT PRIMARY KEY COLLATE NOCASE,
+                        title TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        affected_service TEXT NOT NULL,
+                        severity TEXT NOT NULL CHECK(severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+                        status TEXT NOT NULL CHECK(status IN ('OPEN', 'INVESTIGATING', 'RESOLVED', 'CLOSED')),
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        root_cause TEXT,
+                        resolution TEXT,
+                        outcome TEXT,
+                        resolved_at TEXT
+                    );
+                """)
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents (status);
             """)
@@ -164,7 +194,7 @@ class IncidentRepository:
         """Retrieve an incident by unique ID."""
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM incidents WHERE id = ?;", (incident_id.strip(),))
+            cursor.execute("SELECT * FROM incidents WHERE id = ? COLLATE NOCASE;", (incident_id.strip(),))
             row = cursor.fetchone()
             if not row:
                 return None

@@ -50,18 +50,32 @@ export const QueuePage: React.FC = () => {
     return Array.from(set).sort();
   }, [incidents]);
 
-  const openCount = useMemo(() => incidents.filter((i) => i.status === 'open').length, [incidents]);
-  const resolvedCount = useMemo(() => incidents.filter((i) => i.status === 'resolved').length, [incidents]);
+  const openCount = useMemo(
+    () => incidents.filter((i) => {
+      const s = (i.status || '').toUpperCase();
+      return s === 'OPEN' || s === 'INVESTIGATING';
+    }).length,
+    [incidents]
+  );
+  const resolvedCount = useMemo(
+    () => incidents.filter((i) => {
+      const s = (i.status || '').toUpperCase();
+      return s === 'RESOLVED' || s === 'CLOSED';
+    }).length,
+    [incidents]
+  );
 
   const filteredIncidents = useMemo(() => {
     return incidents.filter((item) => {
-      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+      const itemStatusUpper = (item.status || '').toUpperCase();
+      if (statusFilter === 'open' && itemStatusUpper !== 'OPEN' && itemStatusUpper !== 'INVESTIGATING') return false;
+      if (statusFilter === 'resolved' && itemStatusUpper !== 'RESOLVED' && itemStatusUpper !== 'CLOSED') return false;
       if (serviceFilter !== 'all' && item.service !== serviceFilter) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesId = item.id.toLowerCase().includes(q);
-        const matchesAlert = item.alert.toLowerCase().includes(q);
-        const matchesService = item.service.toLowerCase().includes(q);
+        const matchesId = (item.id || '').toLowerCase().includes(q);
+        const matchesAlert = (item.alert || '').toLowerCase().includes(q);
+        const matchesService = (item.service || '').toLowerCase().includes(q);
         if (!matchesId && !matchesAlert && !matchesService) return false;
       }
       return true;
@@ -69,23 +83,20 @@ export const QueuePage: React.FC = () => {
   }, [incidents, statusFilter, serviceFilter, searchQuery]);
 
   const handleExportCSV = () => {
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      ['id,severity,service,alert,opened,status,memory_match']
-        .concat(
-          filteredIncidents.map(
-            (i) =>
-              `${i.id},${i.severity},${i.service},"${i.alert.replace(/"/g, '""')}",${i.date},${i.status},${i.top_memory_match || 'No history'}`
-          )
-        )
-        .join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvHeader = 'id,severity,service,alert,opened,status,memory_match\n';
+    const csvRows = filteredIncidents.map(
+      (i) =>
+        `${i.id},${i.severity},${i.service},"${(i.alert || '').replace(/"/g, '""')}",${i.date},${i.status},${i.top_memory_match || 'No history'}`
+    ).join('\n');
+    const blob = new Blob([csvHeader + csvRows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.href = url;
     link.setAttribute('download', `oncall_incidents_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (

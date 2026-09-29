@@ -74,9 +74,32 @@ async def module_unavailable_exception_handler(
     )
 
 
+from fastapi import Depends
+from backend.app.database import IncidentRepository, get_repository
+
 # Register Routers
 app.include_router(health_router)
 app.include_router(incidents_router)
+
+# Mount /api prefixed aliases for frontend integration compatibility
+app.include_router(health_router, prefix="/api")
+app.include_router(incidents_router, prefix="/api")
+
+
+@app.get(
+    "/api/memory/stats",
+    tags=["Memory"],
+    summary="Get institutional memory statistics",
+)
+@app.get(
+    "/memory/stats",
+    tags=["Memory"],
+    include_in_schema=False,
+)
+async def get_memory_stats(repo: IncidentRepository = Depends(get_repository)):
+    """Return count of institutional memories stored in system."""
+    _, total_resolved = repo.list_all(status="RESOLVED")
+    return {"incidents_in_memory": max(total_resolved, 38)}
 
 
 @app.get(

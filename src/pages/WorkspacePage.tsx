@@ -422,13 +422,15 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({ onMemoryUpdate }) 
 
               {/* Primary Action Button */}
               <div className="pt-2 border-t border-[var(--border-hairline)] flex items-center gap-3">
-                <button
-                  onClick={() => handleCopyStep(activeRec.steps[0].command, 0)}
-                  className="px-4 py-2 rounded-[4px] bg-[var(--primary)] text-white text-[13px] font-bold hover:bg-[var(--accent-hover)] transition-colors flex items-center gap-1.5 shadow-2xs"
-                >
-                  <Play size={14} />
-                  <span>Execute Step 1</span>
-                </button>
+                {activeRec.steps && activeRec.steps.length > 0 && (
+                  <button
+                    onClick={() => handleCopyStep(activeRec.steps[0].command, 0)}
+                    className="px-4 py-2 rounded-[4px] bg-[var(--primary)] text-white text-[13px] font-bold hover:bg-[var(--accent-hover)] transition-colors flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <Play size={14} />
+                    <span>Execute Step 1</span>
+                  </button>
+                )}
 
                 {documents.length > 0 && (
                   <button

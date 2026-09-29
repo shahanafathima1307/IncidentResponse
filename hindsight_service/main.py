@@ -12,7 +12,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 
-import hindsight_client
+try:
+    import hindsight_client
+except ImportError:
+    hindsight_client = None
+
 from contracts.schemas import MemoryReference, MemoryRetainRequest, IncidentSeverity
 
 logger = logging.getLogger("hindsight_service")
@@ -36,8 +40,10 @@ class SearchRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=50, description="Max memories to return")
 
 
-def get_hindsight_client() -> hindsight_client.Hindsight:
+def get_hindsight_client() -> Any:
     """Initialize Hindsight client instance with configured parameters."""
+    if hindsight_client is None:
+        raise RuntimeError("hindsight-client package is not installed. Install via pip install hindsight-client.")
     return hindsight_client.Hindsight(
         base_url=HINDSIGHT_API_URL,
         api_key=HINDSIGHT_API_KEY,

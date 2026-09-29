@@ -8,13 +8,16 @@ interface SeverityBadgeProps {
 
 export const SeverityBadge: React.FC<SeverityBadgeProps> = ({ severity, className = '' }) => {
   let colorStyle = 'text-[var(--text-muted)] border-[var(--border-hairline)] bg-[var(--bg-subtle)]';
+  const sevUpper = (severity || '').toUpperCase();
 
-  if (severity === 'SEV1') {
+  if (sevUpper === 'SEV1' || sevUpper === 'CRITICAL') {
     colorStyle = 'text-[var(--sem-red)] border-[var(--sem-red-border)] bg-[var(--sem-red-bg)] font-bold';
-  } else if (severity === 'SEV2') {
+  } else if (sevUpper === 'SEV2' || sevUpper === 'HIGH') {
     colorStyle = 'text-[var(--sem-amber)] border-[var(--sem-amber-border)] bg-[var(--sem-amber-bg)] font-bold';
-  } else if (severity === 'SEV3') {
+  } else if (sevUpper === 'SEV3' || sevUpper === 'MEDIUM') {
     colorStyle = 'text-[var(--sem-stale)] border-[var(--sem-stale-border)] bg-[var(--sem-stale-bg)] font-medium';
+  } else if (sevUpper === 'LOW') {
+    colorStyle = 'text-[var(--text-muted)] border-[var(--border-hairline)] bg-[var(--bg-subtle)] font-medium';
   }
 
   return (
@@ -67,24 +70,28 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = '' }) => {
-  const isOpen = status === 'open';
+  const statusUpper = (status || '').toUpperCase();
+  const isOpen = statusUpper === 'OPEN' || statusUpper === 'INVESTIGATING';
+
   if (isOpen) {
+    const label = statusUpper === 'INVESTIGATING' ? 'Investigating' : 'Open';
     return (
       <span
         className={`inline-flex items-center px-2 py-0.5 text-[12px] font-jetbrains font-medium rounded-[3px] border border-[var(--sem-red-border)] bg-[var(--sem-red-bg)] text-[var(--sem-red)] ${className}`}
       >
         <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-[var(--sem-red)]" />
-        Open
+        {label}
       </span>
     );
   }
 
+  const label = statusUpper === 'CLOSED' ? 'Closed' : 'Resolved';
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 text-[12px] font-jetbrains font-medium rounded-[3px] border border-[var(--sem-green-border)] bg-[var(--sem-green-bg)] text-[var(--sem-green)] ${className}`}
     >
       <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-[var(--sem-green)]" />
-      Resolved
+      {label}
     </span>
   );
 };

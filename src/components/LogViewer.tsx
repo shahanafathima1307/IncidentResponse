@@ -43,8 +43,11 @@ export const LogViewer: React.FC<LogViewerProps> = ({
               let customLineNum = idx + 1;
               const match = rawLine.match(/^(\d+)\s+(.*)$/);
               if (match) {
-                customLineNum = parseInt(match[1], 10);
-                line = match[2];
+                const parsedNum = parseInt(match[1], 10);
+                if (parsedNum === idx + 1 || (parsedNum <= lines.length + 5 && parsedNum < 400 && !match[1].startsWith('20'))) {
+                  customLineNum = parsedNum;
+                  line = match[2];
+                }
               }
 
               const isError =
