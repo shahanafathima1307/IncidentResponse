@@ -1,0 +1,166 @@
+{
+  "components": [
+    {
+      "id": "chat_1",
+      "provider": "chat",
+      "name": "Chat",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "chat",
+        "name": "Chat"
+      },
+      "ui": {
+        "position": {
+          "x": 100,
+          "y": 270
+        },
+        "nodeType": "default"
+      }
+    },
+    {
+      "id": "agent_rocketride_1",
+      "provider": "agent_rocketride",
+      "name": "RocketRide Wave Agent",
+      "config": {
+        "max_waves": 2,
+        "instructions": [
+          "You are the Incident Response Agent.\n\nYour job is to help engineers investigate and diagnose technical incidents.\n\nYou have access to tools. Use them.\n\n## Tool: get_current_incident\n\nTo retrieve the current active incident, use the python.execute tool with this exact code:\n\nimport urllib.request\nimport json\nresponse = urllib.request.urlopen('http://127.0.0.1:8000/incidents?status=OPEN&limit=1')\ndata = json.loads(response.read().decode())\nresult = data\n\nThis returns a JSON object with 'total' (count) and 'items' (list of incident records).\nEach incident has: id, title, description, affected_service, severity, status, created_at, updated_at, root_cause, resolution, outcome, resolved_at.\n\n## Rules\n\n1. When asked to investigate the current incident, ALWAYS call get_current_incident first.\n2. Treat tool results as authoritative current-state information.\n3. Never invent incident data or fields that were not returned by the tool.\n4. Never invent a previous incident or resolution.\n5. Do not claim historical incidents exist yet (memory module is not connected).\n6. Do not claim that a fix worked unless an engineer has confirmed the outcome.\n7. Clearly separate retrieved facts from your own reasoning and recommendations.\n8. If the tool returns total: 0, report that no active incidents were found.\n9. Ground all recommendations in the actual incident data retrieved."
+        ],
+        "name": "RocketRide Wave Agent"
+      },
+      "ui": {
+        "position": {
+          "x": 400,
+          "y": 270
+        },
+        "nodeType": "default"
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "chat_1"
+        }
+      ]
+    },
+    {
+      "id": "llm_openai_api_1",
+      "provider": "llm_openai_api",
+      "name": "OpenAI-Compatible API",
+      "config": {
+        "profile": "custom",
+        "tool_choice": "auto",
+        "custom": {
+          "apikey": "${ROCKETRIDE_GROQ_API_KEY}",
+          "base_url": "https://api.groq.com/openai/v1",
+          "model": "openai/gpt-oss-20b",
+          "modelTotalTokens": 2048,
+          "modelOutputTokens": 2048,
+          "tool_choice": "auto"
+        },
+        "name": "OpenAI-Compatible API"
+      },
+      "ui": {
+        "position": {
+          "x": 700,
+          "y": 100
+        },
+        "nodeType": "default"
+      },
+      "control": [
+        {
+          "classType": "llm",
+          "from": "agent_rocketride_1"
+        }
+      ]
+    },
+    {
+      "id": "memory_internal_1",
+      "provider": "memory_internal",
+      "name": "Memory (Internal)",
+      "config": {
+        "name": "Memory (Internal)"
+      },
+      "ui": {
+        "position": {
+          "x": 700,
+          "y": 400
+        },
+        "nodeType": "default"
+      },
+      "control": [
+        {
+          "classType": "memory",
+          "from": "agent_rocketride_1"
+        }
+      ]
+    },
+    {
+      "id": "tool_python_1",
+      "provider": "tool_python",
+      "name": "Python (Backend Client)",
+      "config": {
+        "timeout": 30,
+        "allowedModules": [
+          {
+            "moduleName": "urllib"
+          },
+          {
+            "moduleName": "urllib.request"
+          },
+          {
+            "moduleName": "urllib.parse"
+          },
+          {
+            "moduleName": "urllib.error"
+          },
+          {
+            "moduleName": "http"
+          },
+          {
+            "moduleName": "http.client"
+          }
+        ],
+        "name": "Python (Backend Client)"
+      },
+      "ui": {
+        "position": {
+          "x": 700,
+          "y": 550
+        },
+        "nodeType": "default"
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_rocketride_1"
+        }
+      ]
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "name": "Return Answers",
+      "config": {
+        "laneName": "answers",
+        "name": "Return Answers"
+      },
+      "ui": {
+        "position": {
+          "x": 700,
+          "y": 250
+        },
+        "nodeType": "default"
+      },
+      "input": [
+        {
+          "lane": "answers",
+          "from": "agent_rocketride_1"
+        }
+      ]
+    }
+  ],
+  "version": 1,
+  "project_id": "82c3d985-d4ca-4686-96d8-07edd6733aed"
+}
